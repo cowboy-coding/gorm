@@ -594,6 +594,41 @@ func TestHasManyOverrideForeignKey2(t *testing.T) {
 	}
 }
 
+func TestAutoSaveHasManyAssociation(t *testing.T) {
+	type Company struct {
+		gorm.Model
+		Name   string
+		UserID uint
+	}
+
+	type User struct {
+		gorm.Model
+		Name      string
+		Companies []Company `gorm:"association_autoupdate:false;association_autocreate:false;"`
+	}
+
+	DB.AutoMigrate(&Company{}, &User{})
+
+	company := Company{Name: "auto_save_association"}
+	DB.Save(&company)
+
+	company1 := Company{}
+	company1.ID = company.ID
+	DB.Save(&User{Name: "jinzhu", Companies: []Company{company1}})
+
+	if DB.Where("name = ?", "jinzhu").First(&User{}).RecordNotFound() {
+		t.Errorf("User record should be saved")
+	}
+
+	company2 := Company{}
+	DB.Where("id = ?", company1.ID).First(&company2)
+
+	if company2.UserID == 0 {
+		t.Errorf("UserID should be assigned")
+	}
+
+}
+
 func TestManyToMany(t *testing.T) {
 	DB.Raw("delete from languages")
 	var languages = []Language{{Name: "ZH"}, {Name: "EN"}}
